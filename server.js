@@ -103,8 +103,7 @@ const activeUserSessions = new Map();
 
 // Socket.IO 连接处理
 io.on('connection', (socket) => {
-    console.log('New socket connection:', socket.id);
-
+    // 只在用户登录时记录
     socket.on('store_user_socket', (userId) => {
         if (userId) {
             socket.userId = userId;
@@ -114,7 +113,6 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         const userId = socket.userId;
         if (userId) {
-            // 只保留用于强制登出的功能
             socket.userId = null;
         }
     });
@@ -184,12 +182,14 @@ app.post('/api/login', async (req, res) => {
                     try {
                         await new Promise((resolve) => {
                             req.sessionStore.destroy(existingSessionId, (err) => {
-                                if (err) console.error('会话注销失败:', err);
+                                if (err) {
+                                    console.error('会话注销失败');
+                                }
                                 resolve();
                             });
                         });
                     } catch (err) {
-                        console.error('强制注销会话失败:', err);
+                        console.error('强制注销会话失败');
                     }
                 }
 
@@ -233,7 +233,7 @@ app.post('/api/logout', (req, res) => {
     
     req.session.destroy((err) => {
         if (err) {
-            console.error('注销失败：', err);
+            console.error('注销失败');
             return res.status(500).json({
                 success: false,
                 message: '注销失败'
