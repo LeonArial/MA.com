@@ -829,12 +829,17 @@
                     loginBtn.style.display = 'none';
                     userInfo.style.display = 'flex';
                     username.textContent = data.user.username;
-                    publishButton.style.display = 'block'; // 显示发布按钮
+                    publishButton.style.display = 'block';
+                    
+                    if (!socket.userId) {
+                        socket.userId = data.user.id;
+                        socket.emit('store_user_socket', data.user.id);
+                    }
                 } else {
                     loginBtn.style.display = 'flex';
                     userInfo.style.display = 'none';
                     username.textContent = '';
-                    publishButton.style.display = 'none'; // 隐藏发布按钮
+                    publishButton.style.display = 'none';
                 }
             } catch (error) {
                 console.error('检查登录状态失败:', error);
@@ -976,7 +981,7 @@
             tinymce.get('newContentEditor').setContent('');
         }
 
-        // 修改隐藏添加内容表���函数
+        // 修改隐藏添加内容表函数
         function hideAddContentForm() {
             const modal = document.getElementById('addContentForm');
             modal.style.display = 'none';
@@ -1059,7 +1064,10 @@
 
                 const data = await response.json();
                 if (data.success) {
-                    // 不跳转，而是刷新当前页面
+                    // 断开 Socket.IO 连接
+                    if (socket.connected) {
+                        socket.disconnect();
+                    }
                     window.location.reload();
                 } else {
                     alert('退出失败，请重试');
@@ -1080,6 +1088,40 @@
                     sessionStorage.setItem('returnUrl', window.location.href);
                     window.location.href = '/login';
                 });
+            }
+        });
+
+        // Socket.IO 连接
+        const socket = io();
+
+        // Socket.IO 事件监听
+        socket.on('connect', () => {
+            console.log('Socket connected:', socket.id);
+            if (socket.userId) {
+                socket.emit('store_user_socket', socket.userId);
+            }
+        });
+
+        socket.on('force_logout', (data) => {
+            console.log('Received force logout event:', data);
+            alert(data.message);
+            window.location.replace('/login');
+        });
+
+        // 页面加载和页面可见性变化时检查登录状态
+        document.addEventListener('DOMContentLoaded', checkLoginStatus);
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && socket.userId) {
+                socket.connect();
+                socket.emit('user_connected', socket.userId);
+                socket.emit('store_user_socket', socket.userId);
+            }
+        });
+
+        // 页面关闭或刷新前的处理
+        window.addEventListener('beforeunload', () => {
+            if (socket.connected) {
+                socket.disconnect();
             }
         });
     </script>

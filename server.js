@@ -95,11 +95,6 @@ app.get('/admin', checkAuth, (req, res) => {
 const server = http.createServer(app);
 const io = socketIo(server);
 
-// 跟踪在线用户
-const onlineUsers = new Map();
-const userSockets = new Map();
-const userSocketMap = new Map();
-
 // 添加登录失败次数记录
 const loginAttempts = new Map();
 
@@ -108,33 +103,19 @@ const activeUserSessions = new Map();
 
 // Socket.IO 连接处理
 io.on('connection', (socket) => {
-    socket.on('store_user_socket', (userId) => {
-        socket.userId = userId;
-        userSocketMap.set(userId, socket);
-    });
+    console.log('New socket connection:', socket.id);
 
-    socket.on('user_connected', (userId) => {
-        onlineUsers.set(socket.id, userId);
-        if (!userSockets.has(userId)) {
-            userSockets.set(userId, new Set());
+    socket.on('store_user_socket', (userId) => {
+        if (userId) {
+            socket.userId = userId;
         }
-        userSockets.get(userId).add(socket.id);
-        io.emit('online_users_count', userSockets.size);
     });
 
     socket.on('disconnect', () => {
         const userId = socket.userId;
         if (userId) {
-            userSocketMap.delete(userId);
-            onlineUsers.delete(socket.id);
-            const userSocketSet = userSockets.get(userId);
-            if (userSocketSet) {
-                userSocketSet.delete(socket.id);
-                if (userSocketSet.size === 0) {
-                    userSockets.delete(userId);
-                }
-            }
-            io.emit('online_users_count', userSockets.size);
+            // 只保留用于强制登出的功能
+            socket.userId = null;
         }
     });
 });

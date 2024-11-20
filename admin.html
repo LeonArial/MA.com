@@ -33,6 +33,10 @@
             color: white;
             padding: 20px 0;
             box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
         }
 
         .sidebar h2 {
@@ -47,6 +51,10 @@
             transition: all 0.3s;
             display: flex;
             align-items: center;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
         }
 
         .menu-item i {
@@ -485,18 +493,6 @@
                                 <div class="stat-label">管理员数量</div>
                             </div>
                         </div>
-                        
-                        <!-- 添加在线用户统计卡片 -->
-                        <div class="stat-card">
-                            <div class="stat-header">
-                                <i class="fas fa-signal"></i>
-                                <h4>在线用户</h4>
-                            </div>
-                            <div class="stat-content">
-                                <div class="stat-number" id="onlineUsers">-</div>
-                                <div class="stat-label">当前在线</div>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -656,7 +652,7 @@
             }
         }
 
-        // 修改加载仪表��数据函数
+        // 修改加载仪表数据函数
         async function loadDashboard() {
             // 只在首次加载或手动刷新时显示加载动画
             const isFirstLoad = !document.getElementById('totalUsers').textContent || 
@@ -752,17 +748,7 @@
         socket.on('connect', () => {
             console.log('Socket connected:', socket.id);
             if (socket.userId) {
-                socket.emit('user_connected', socket.userId);
                 socket.emit('store_user_socket', socket.userId);
-            }
-        });
-
-        // 监听在线用户数量更新
-        socket.on('online_users_count', (count) => {
-            console.log('Received online users count:', count);
-            const onlineUsersElement = document.getElementById('onlineUsers');
-            if (onlineUsersElement) {
-                onlineUsersElement.textContent = count;
             }
         });
 
@@ -792,13 +778,10 @@
                 document.getElementById('userInfo').textContent = 
                     `当前用户：${data.user.username}`;
                 
-                // 更新 socket 的用户ID
-                socket.userId = data.user.id;
-                console.log('Setting socket user ID:', data.user.id);
-                
-                // 发送连接和存储事件
-                socket.emit('user_connected', data.user.id);
-                socket.emit('store_user_socket', data.user.id);
+                if (!socket.userId) {
+                    socket.userId = data.user.id;
+                    socket.emit('store_user_socket', data.user.id);
+                }
                 
                 // 根据当前 hash 加载对应页面
                 const hash = window.location.hash;
@@ -829,16 +812,16 @@
                 const response = await fetch('/api/logout', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'socket-id': socket.id
+                        'Content-Type': 'application/json'
                     }
                 });
 
                 const data = await response.json();
                 if (data.success) {
-                    // 只断开当前连接
-                    socket.disconnect();
-                    // 修改这里：跳转到主页而不是登录页面
+                    // 断开 Socket.IO 连接
+                    if (socket.connected) {
+                        socket.disconnect();
+                    }
                     window.location.href = '/';
                 } else {
                     alert('登出失败，请重试');
@@ -1063,7 +1046,7 @@
             history.replaceState(null, '', hash);
         }
 
-        // 修改初始状处理
+        // 修改初始处理
         document.addEventListener('DOMContentLoaded', () => {
             // 根据当前 URL hash 显示对应页面
             const hash = window.location.hash;
@@ -1516,6 +1499,22 @@
                 hideLoading();
             }
         }
+
+        // 添加页面可见性变化监听
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && socket.userId) {
+                socket.connect();
+                socket.emit('user_connected', socket.userId);
+                socket.emit('store_user_socket', socket.userId);
+            }
+        });
+
+        // 添加页面关闭前处理
+        window.addEventListener('beforeunload', () => {
+            if (socket.connected) {
+                socket.disconnect();
+            }
+        });
     </script>
 </body>
 </html> 
