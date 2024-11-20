@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>后台管理系统</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <!-- 添加 Font Awesome 图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.tiny.cloud/1/ultqulo896fvxj3l2o617lktjikveakzhi2e5rus5uzei7cw/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f6fa;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* 侧边栏样式 */
+        .sidebar {
+            width: 250px;
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px 0;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        .sidebar h2 {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid #34495e;
+            margin-bottom: 20px;
+        }
+
+        .menu-item {
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+        }
+
+        .menu-item i {
+            margin-right: 10px;
+            width: 20px;
+        }
+
+        .menu-item:hover {
+            background-color: #34495e;
+        }
+
+        .menu-item.active {
+            background-color: #3498db;
+        }
+
+        /* 主内容区样式 */
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            background-color: #f5f6fa;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .header button {
+            padding: 10px 20px;
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .header button:hover {
+            background-color: #c0392b;
+        }
+
+        /* 统计卡片样式 */
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .stat-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .stat-header i {
+            font-size: 24px;
+            color: #3498db;
+            margin-right: 10px;
+        }
+
+        .stat-content {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .stat-label {
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+
+        /* 表单样式 */
+        .form-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        /* 按钮样式 */
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 0 5px;
+        }
+
+        .btn-primary {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .btn-danger {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .btn-success {
+            background-color: #2ecc71;
+            color: white;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        /* 表格样式 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        /* 加载动画样式 */
+        .loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 返回按样式 */
+        .back-btn {
+            color: #2c3e50;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            border-radius: 5px;
+            transition: all 0.3s;
+            font-size: 14px;
+            background-color: #f8f9fa;
+        }
+
+        .back-btn:hover {
+            background-color: #e9ecef;
+            color: #3498db;
+        }
+
+        .back-btn i {
+            font-size: 16px;
+        }
+
+        /* 角色标签样式 */
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-admin {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .badge-user {
+            background-color: #95a5a6;
+            color: white;
+        }
+
+        .sidebar-home {
+            padding: 20px;
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            border-bottom: 1px solid #34495e;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+
+        .sidebar-home:hover {
+            background-color: #34495e;
+        }
+
+        .sidebar-home i {
+            font-size: 20px;
+        }
+
+        /* 富文本编辑器中的图片样式 */
+        .rich-editor img {
+            max-width: 50%; /* 修改图片最大宽度为编辑器的50% */
+            height: auto;
+            margin: 10px auto; /* 居中显示 */
+            display: block; /* 确保图片独占一行 */
+            border-radius: 5px;
+        }
+
+        .image-wrapper {
+            position: relative;
+            display: block; /* 改为块级元素 */
+            margin: 10px auto; /* 居中显示 */
+            width: 50%; /* 与图片宽度一致 */
+        }
+
+        .image-wrapper img {
+            width: 100%; /* 图片填充包装器 */
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* 添加图片尺寸控制按钮 */
+        .image-tools {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            display: none;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 3px;
+            padding: 5px;
+            gap: 5px;
+        }
+
+        .image-wrapper:hover .image-tools {
+            display: flex;
+        }
+
+        .image-tools button {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        .image-tools button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .close-btn {
+            cursor: pointer;
+            padding: 5px;
+            font-size: 20px;
+            color: #7f8c8d;
+            transition: color 0.3s;
+        }
+
+        .close-btn:hover {
+            color: #e74c3c;
+        }
+
+        .form-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 添加加载动画 -->
+    <div class="loading">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <a href="/" class="sidebar-home">
+                <i class="fas fa-home"></i> 返回主页
+            </a>
+            <div class="menu-item active">
+                <i class="fas fa-chart-line"></i>仪表盘
+            </div>
+            <div class="menu-item">
+                <i class="fas fa-users"></i>用户管理
+            </div>
+            <div class="menu-item">
+                <i class="fas fa-file-alt"></i>内容管理
+            </div>
+            <div class="menu-item">
+                <i class="fas fa-cog"></i>系统设置
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="header">
+                <div>
+                    <h2>欢迎来到后台管理系统</h2>
+                    <span id="userInfo"></span>
+                </div>
+                <button onclick="handleLogout()">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </button>
+            </div>
+
+            <div id="content">
+                <!-- 仪表盘部 -->
+                <div id="dashboard">
+                    <h3><i class="fas fa-chart-line"></i> 系统概览</h3>
+                    <div style="margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                        <!-- 用户统计卡片 -->
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <i class="fas fa-users"></i>
+                                <h4>用户统计</h4>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-number" id="totalUsers">-</div>
+                                <div class="stat-label">总用户数</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 管理员统计卡片 -->
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <i class="fas fa-user-shield"></i>
+                                <h4>管理员统计</h4>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-number" id="totalAdmins">-</div>
+                                <div class="stat-label">管理员数量</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 添加在线用户统计卡片 -->
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <i class="fas fa-signal"></i>
+                                <h4>在线用户</h4>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-number" id="onlineUsers">-</div>
+                                <div class="stat-label">当前在线</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 用户管理部分 -->
+                <div id="userManagement" style="display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3><i class="fas fa-users"></i> 用户管理</h3>
+                        <button class="btn btn-primary" onclick="showAddUserForm()">
+                            <i class="fas fa-plus"></i> 添加用户
+                        </button>
+                    </div>
+
+                    <div id="userList"></div>
+
+                    <!-- 添加用户表单 -->
+                    <div id="addUserForm" class="form-container" style="display: none;">
+                        <h4><i class="fas fa-user-plus"></i> 添加新用户</h4>
+                        <form onsubmit="handleAddUser(event)">
+                            <div class="form-group">
+                                <label>用户名：</label>
+                                <input type="text" id="newUsername" required>
+                            </div>
+                            <div class="form-group">
+                                <label>密码：</label>
+                                <input type="password" id="newPassword" required>
+                            </div>
+                            <div class="form-group">
+                                <label>角色：</label>
+                                <select id="newRole">
+                                    <option value="user">普通用户</option>
+                                    <option value="admin">管理员</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-check"></i> 确认添加
+                            </button>
+                            <button type="button" class="btn btn-danger" onclick="hideAddUserForm()">
+                                <i class="fas fa-times"></i> 取消
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- 修改编辑用户表单部分 -->
+                    <div id="editUserForm" class="modal" style="display: none;">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h4><i class="fas fa-user-edit"></i> 编辑用户</h4>
+                                <span class="close-btn" onclick="hideEditUserForm()">
+                                    <i class="fas fa-times"></i>
+                                </span>
+                            </div>
+                            <form onsubmit="handleEditUser(event)">
+                                <input type="hidden" id="editUserId">
+                                <div class="form-group">
+                                    <label>用户名：</label>
+                                    <input type="text" id="editUsername" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>新密码：</label>
+                                    <input type="password" id="editPassword" placeholder="留空则不修改">
+                                </div>
+                                <div class="form-group">
+                                    <label>确认新密码：</label>
+                                    <input type="password" id="editPasswordConfirm" placeholder="留空则不修改">
+                                </div>
+                                <div class="form-group">
+                                    <label>角色：</label>
+                                    <select id="editRole">
+                                        <option value="user">普通用户</option>
+                                        <option value="admin">管理员</option>
+                                    </select>
+                                </div>
+                                <div class="form-buttons">
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="fas fa-save"></i> 保存修改
+                                    </button>
+                                    <button type="button" class="btn btn-danger" onclick="hideEditUserForm()">
+                                        <i class="fas fa-times"></i> 取消
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 内容管理部分 -->
+                <div id="contentManagement" style="display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3><i class="fas fa-file-alt"></i> 内容管理</h3>
+                    </div>
+
+                    <div id="contentList"></div>
+
+                    <!-- 修改编辑内容表单部分 -->
+                    <div id="editContentForm" class="modal" style="display: none;">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h4><i class="fas fa-edit"></i> 编辑内容</h4>
+                                <span class="close-btn" onclick="hideEditContentForm()">
+                                    <i class="fas fa-times"></i>
+                                </span>
+                            </div>
+                            <form onsubmit="handleEditContent(event)">
+                                <input type="hidden" id="editContentId">
+                                <div class="form-group">
+                                    <label>标题：</label>
+                                    <input type="text" id="editTitle" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>分类：</label>
+                                    <select id="editCategory">
+                                        <option value="news">新闻</option>
+                                        <option value="notice">公告</option>
+                                        <option value="article">文章</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>内容：</label>
+                                    <textarea id="editContentEditor"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>状态：</label>
+                                    <select id="editStatus">
+                                        <option value="published">已发布</option>
+                                        <option value="unpublished">未发布</option>
+                                    </select>
+                                </div>
+                                <div class="form-buttons">
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="fas fa-save"></i> 保存修改
+                                    </button>
+                                    <button type="button" class="btn btn-danger" onclick="hideEditContentForm()">
+                                        <i class="fas fa-times"></i> 取消
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 修改加载动画相关函数
+        function showLoading() {
+            const loading = document.querySelector('.loading');
+            if (!loading.style.display || loading.style.display === 'none') {
+                loading.style.display = 'flex';
+            }
+        }
+
+        function hideLoading() {
+            const loading = document.querySelector('.loading');
+            if (loading.style.display === 'flex') {
+                loading.style.display = 'none';
+            }
+        }
+
+        // 修改加载仪表��数据函数
+        async function loadDashboard() {
+            // 只在首次加载或手动刷新时显示加载动画
+            const isFirstLoad = !document.getElementById('totalUsers').textContent || 
+                               document.getElementById('totalUsers').textContent === '-';
+            if (isFirstLoad) {
+                showLoading();
+            }
+
+            try {
+                const response = await fetch('/api/dashboard');
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 只更新总用户数和管理员数量
+                    document.getElementById('totalUsers').textContent = data.totalUsers || '-';
+                    document.getElementById('totalAdmins').textContent = data.totalAdmins || '-';
+                } else {
+                    console.error('加载仪表盘数据失败:', data.message);
+                }
+            } catch (error) {
+                console.error('加载仪表盘数据失败:', error);
+            } finally {
+                if (isFirstLoad) {
+                    hideLoading();
+                }
+            }
+        }
+
+        // 修改加载用户列表函数
+        async function loadUsers() {
+            // 只在首次加载或手动刷新时显示加载动画
+            const userList = document.getElementById('userList');
+            const isFirstLoad = !userList.innerHTML;
+            if (isFirstLoad) {
+                showLoading();
+            }
+
+            try {
+                const response = await fetch('/api/users');
+                const data = await response.json();
+                
+                if (data.success) {
+                    userList.innerHTML = `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>用户名</th>
+                                    <th>角色</th>
+                                    <th>创建时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.users.map(user => `
+                                    <tr>
+                                        <td>${user.id}</td>
+                                        <td>${user.username}</td>
+                                        <td>
+                                            <span class="badge ${user.role === 'admin' ? 'badge-admin' : 'badge-user'}">
+                                                ${user.role === 'admin' ? '管理员' : '普通用户'}
+                                            </span>
+                                        </td>
+                                        <td>${new Date(user.created_at).toLocaleString()}</td>
+                                        <td>
+                                            <button class="btn btn-primary" onclick="showEditUserForm(${user.id}, '${user.username}', '${user.role}')">
+                                                <i class="fas fa-edit"></i> 编辑
+                                            </button>
+                                            <button class="btn btn-danger" onclick="deleteUser(${user.id})">
+                                                <i class="fas fa-trash"></i> 删除
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                }
+            } catch (error) {
+                console.error('加载用户列表失败:', error);
+                alert('加载用户列表失败');
+            } finally {
+                if (isFirstLoad) {
+                    hideLoading();
+                }
+            }
+        }
+
+        // 建立 Socket.IO 连接
+        const socket = io();
+
+        // 当用户成功登录后，发送连接事件
+        socket.on('connect', () => {
+            console.log('Socket connected:', socket.id);
+            if (socket.userId) {
+                socket.emit('user_connected', socket.userId);
+                socket.emit('store_user_socket', socket.userId);
+            }
+        });
+
+        // 监听在线用户数量更新
+        socket.on('online_users_count', (count) => {
+            console.log('Received online users count:', count);
+            const onlineUsersElement = document.getElementById('onlineUsers');
+            if (onlineUsersElement) {
+                onlineUsersElement.textContent = count;
+            }
+        });
+
+        // 在 Socket.IO 连接相关代码部分添加
+        socket.on('force_logout', (data) => {
+            console.log('Received force logout event:', data);
+            alert(data.message);
+            // 确保在跳转前执行清理操作
+            socket.disconnect();
+            // 使用同步的方式跳转，确保消息能够显示
+            window.location.replace('/login');
+        });
+
+        // 修改检查登录状态函数
+        async function checkLoginStatus() {
+            try {
+                const response = await fetch('/api/login/status');
+                const data = await response.json();
+                if (!data.success) {
+                    if (data.message === '您的账号已在其他地方登录') {
+                        alert('您的账号已在其他地方登录，即将返回登录页面');
+                    }
+                    window.location.replace('/login');
+                    return;
+                }
+                
+                document.getElementById('userInfo').textContent = 
+                    `当前用户：${data.user.username}`;
+                
+                // 更新 socket 的用户ID
+                socket.userId = data.user.id;
+                console.log('Setting socket user ID:', data.user.id);
+                
+                // 发送连接和存储事件
+                socket.emit('user_connected', data.user.id);
+                socket.emit('store_user_socket', data.user.id);
+                
+                // 根据当前 hash 加载对应页面
+                const hash = window.location.hash;
+                let pageToShow = '仪表盘';
+                
+                switch (hash) {
+                    case '#users':
+                        pageToShow = '用户管理';
+                        break;
+                    case '#content':
+                        pageToShow = '内容管理';
+                        break;
+                    case '#settings':
+                        pageToShow = '系统设置';
+                        break;
+                }
+                
+                switchPage(pageToShow);
+            } catch (error) {
+                console.error('检查登录状态失败:', error);
+                window.location.replace('/login');
+            }
+        }
+
+        // 修改登出处理函数
+        async function handleLogout() {
+            try {
+                const response = await fetch('/api/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'socket-id': socket.id
+                    }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    // 只断开当前连接
+                    socket.disconnect();
+                    // 修改这里：跳转到主页而不是登录页面
+                    window.location.href = '/';
+                } else {
+                    alert('登出失败，请重试');
+                }
+            } catch (error) {
+                alert('登出失败，请重试');
+            }
+        }
+
+        // 页面加载时检查登录状态
+        checkLoginStatus();
+
+        // 显示用户管理页面
+        function showUserManagement() {
+            document.getElementById('userManagement').style.display = 'block';
+            loadUsers();
+        }
+
+        // 显示添加用户表单
+        function showAddUserForm() {
+            document.getElementById('addUserForm').style.display = 'block';
+        }
+
+        // 隐藏添加用户表单
+        function hideAddUserForm() {
+            document.getElementById('addUserForm').style.display = 'none';
+            document.getElementById('newUsername').value = '';
+            document.getElementById('newPassword').value = '';
+        }
+
+        // 处理添加用户
+        async function handleAddUser(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('newUsername').value;
+            const rawPassword = document.getElementById('newPassword').value;
+            const role = document.getElementById('newRole').value;
+
+            // 对密码进行哈希处理
+            const hashedPassword = CryptoJS.SHA256(rawPassword).toString();
+
+            try {
+                const response = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        username, 
+                        password: hashedPassword,
+                        role,
+                        isHashed: true
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('用户添加成功');
+                    hideAddUserForm();
+                    loadUsers();
+                } else {
+                    alert(data.message);
+                }
+            } catch (error) {
+                alert('添加用户失败');
+            }
+        }
+
+        // 显示编辑用户表单
+        function showEditUserForm(userId, username, role) {
+            document.getElementById('editUserId').value = userId;
+            document.getElementById('editUsername').value = username;
+            document.getElementById('editPassword').value = '';
+            document.getElementById('editPasswordConfirm').value = '';
+            document.getElementById('editRole').value = role;
+            document.getElementById('editUserForm').style.display = 'flex';
+            document.body.style.overflow = 'hidden'; // 防背景滚动
+        }
+
+        // 隐藏编辑用户表单
+        function hideEditUserForm() {
+            document.getElementById('editUserForm').style.display = 'none';
+            document.getElementById('editPassword').value = '';
+            document.getElementById('editPasswordConfirm').value = '';
+            document.body.style.overflow = 'auto'; // 恢复背景滚动
+        }
+
+        // 点击模态框外部关闭
+        document.getElementById('editUserForm').addEventListener('click', function(e) {
+            if (e.target === this) {
+                hideEditUserForm();
+            }
+        });
+
+        // 处理编辑用户
+        async function handleEditUser(event) {
+            event.preventDefault();
+            
+            const userId = document.getElementById('editUserId').value;
+            const username = document.getElementById('editUsername').value;
+            const rawPassword = document.getElementById('editPassword').value;
+            const confirmPassword = document.getElementById('editPasswordConfirm').value;
+            const role = document.getElementById('editRole').value;
+
+            // 如果输入了密码，检查两次输入是否一致
+            if (rawPassword) {
+                if (rawPassword !== confirmPassword) {
+                    alert('两次输入的密码不一致！');
+                    return;
+                }
+                if (rawPassword.length < 6) {
+                    alert('密码长度不能少于6位！');
+                    return;
+                }
+            }
+
+            const data = {
+                username,
+                role
+            };
+
+            if (rawPassword) {
+                data.password = CryptoJS.SHA256(rawPassword).toString();
+                data.isHashed = true;
+            }
+
+            try {
+                const response = await fetch(`/api/users/${userId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const responseData = await response.json();
+                
+                if (responseData.success) {
+                    alert('用户更新成功');
+                    hideEditUserForm();
+                    loadUsers();
+                } else {
+                    alert(responseData.message);
+                }
+            } catch (error) {
+                alert('更新用户失败');
+            }
+        }
+
+        // 删除用户
+        async function deleteUser(userId) {
+            if (!confirm('确定要删除这个用户吗？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/users/${userId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('用户删除成功');
+                    loadUsers();
+                } else {
+                    alert(data.message);
+                }
+            } catch (error) {
+                alert('删除用户失败');
+            }
+        }
+
+        // 修改页面切换函数
+        function switchPage(menuText) {
+            // 移除所有菜单项的 active 类
+            document.querySelectorAll('.menu-item').forEach(menuItem => {
+                menuItem.classList.remove('active');
+            });
+            
+            // 隐藏所有内容区域
+            document.querySelectorAll('#content > div').forEach(div => {
+                div.style.display = 'none';
+            });
+
+            // 根据菜单文本设置对应的 hash 和显示相应内容
+            let hash = '';
+            let targetMenuItem = null;
+
+            switch (menuText.trim()) {
+                case '用户管理':
+                    hash = '#users';
+                    targetMenuItem = document.querySelector('.menu-item:nth-child(3)');
+                    document.getElementById('userManagement').style.display = 'block';
+                    loadUsers();
+                    break;
+                case '内容管理':
+                    hash = '#content';
+                    targetMenuItem = document.querySelector('.menu-item:nth-child(4)');
+                    document.getElementById('contentManagement').style.display = 'block';
+                    loadContents();
+                    break;
+                case '系统设置':
+                    hash = '#settings';
+                    targetMenuItem = document.querySelector('.menu-item:nth-child(5)');
+                    // 显示系统设置
+                    break;
+                default: // 仪表盘
+                    hash = '#dashboard';
+                    targetMenuItem = document.querySelector('.menu-item:nth-child(2)');
+                    document.getElementById('dashboard').style.display = 'block';
+                    loadDashboard();
+            }
+
+            // 添加 active 类到目标菜单项
+            if (targetMenuItem) {
+                targetMenuItem.classList.add('active');
+            }
+            
+            // 更新 URL hash
+            history.replaceState(null, '', hash);
+        }
+
+        // 修改初始状处理
+        document.addEventListener('DOMContentLoaded', () => {
+            // 根据当前 URL hash 显示对应页面
+            const hash = window.location.hash;
+            let pageToShow = '仪表盘'; // 默认显示仪表盘
+            
+            switch (hash) {
+                case '#users':
+                    pageToShow = '用户管理';
+                    break;
+                case '#content':
+                    pageToShow = '内容管理';
+                    break;
+                case '#settings':
+                    pageToShow = '系统设置';
+                    break;
+            }
+            
+            switchPage(pageToShow);
+        });
+
+        // 修改 hashchange 事件监听器
+        window.addEventListener('hashchange', (event) => {
+            // 阻止事件的默认行为
+            event.preventDefault();
+            
+            const hash = window.location.hash;
+            let pageToShow = '仪表盘'; // 默认显示仪表盘
+            
+            switch (hash) {
+                case '#users':
+                    pageToShow = '用户管理';
+                    break;
+                case '#content':
+                    pageToShow = '内容管理';
+                    break;
+                case '#settings':
+                    pageToShow = '系统设置';
+                    break;
+            }
+            
+            switchPage(pageToShow);
+        });
+
+        // 修改菜单点击事件处理
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', function(event) {
+                // 阻止事件冒泡
+                event.stopPropagation();
+                const menuText = this.textContent.trim();
+                switchPage(menuText);
+            });
+        });
+
+        // 修改 Socket.IO 相关代码部分
+        socket.on('dashboard_update', (data) => {
+            // 只在仪表盘显示时更新数据
+            if (document.getElementById('dashboard').style.display !== 'none') {
+                if (data.totalUsers !== undefined) {
+                    document.getElementById('totalUsers').textContent = data.totalUsers;
+                }
+                if (data.totalAdmins !== undefined) {
+                    document.getElementById('totalAdmins').textContent = data.totalAdmins;
+                }
+            }
+        });
+
+        // 修改用户管理相关函
+        async function handleAddUser(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('newUsername').value;
+            const rawPassword = document.getElementById('newPassword').value;
+            const role = document.getElementById('newRole').value;
+
+            const hashedPassword = CryptoJS.SHA256(rawPassword).toString();
+
+            try {
+                const response = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        username, 
+                        password: hashedPassword,
+                        role,
+                        isHashed: true
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('用户添加成功');
+                    hideAddUserForm();
+                    loadUsers();
+                    // 不需要手动刷新仪表盘，服务器会通过 Socket.IO 推送更新
+                } else {
+                    alert(data.message);
+                }
+            } catch (error) {
+                alert('添加用户失败');
+            }
+        }
+
+        // 修改删除用户函数
+        async function deleteUser(userId) {
+            if (!confirm('确定要删除这个用户吗？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/users/${userId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('用户删除成功');
+                    loadUsers();
+                    // 不需要手动刷新仪表盘，服务器会通过 Socket.IO 推送更新
+                } else {
+                    alert(data.message);
+                }
+            } catch (error) {
+                alert('删除用户失败');
+            }
+        }
+
+        // 修改编辑用户函数
+        async function handleEditUser(event) {
+            event.preventDefault();
+            
+            const userId = document.getElementById('editUserId').value;
+            const username = document.getElementById('editUsername').value;
+            const rawPassword = document.getElementById('editPassword').value;
+            const confirmPassword = document.getElementById('editPasswordConfirm').value;
+            const role = document.getElementById('editRole').value;
+
+            // 如果输入了密码，检查两次输入是否一致
+            if (rawPassword) {
+                if (rawPassword !== confirmPassword) {
+                    alert('两次输入的密码不一致！');
+                    return;
+                }
+                if (rawPassword.length < 6) {
+                    alert('密码长度不能少于6位！');
+                    return;
+                }
+            }
+
+            const data = {
+                username,
+                role
+            };
+
+            if (rawPassword) {
+                data.password = CryptoJS.SHA256(rawPassword).toString();
+                data.isHashed = true;
+            }
+
+            try {
+                const response = await fetch(`/api/users/${userId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const responseData = await response.json();
+                
+                if (responseData.success) {
+                    alert('用户更新成功');
+                    hideEditUserForm();
+                    loadUsers();
+                    // 不需要手动刷新仪表盘，服务器会通过 Socket.IO 推送更新
+                } else {
+                    alert(responseData.message);
+                }
+            } catch (error) {
+                alert('更新用户失败');
+            }
+        }
+
+        // 内容管理相关函数
+        async function loadContents() {
+            const contentList = document.getElementById('contentList');
+            showLoading();
+
+            try {
+                const response = await fetch('/api/contents');
+                const data = await response.json();
+                
+                if (data.success) {
+                    contentList.innerHTML = `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>标题</th>
+                                    <th>分类</th>
+                                    <th>状态</th>
+                                    <th>创建时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.contents.map(content => `
+                                    <tr>
+                                        <td>${content.id}</td>
+                                        <td>${content.title}</td>
+                                        <td><span class="content-category">${getCategoryName(content.category)}</span></td>
+                                        <td><span class="content-status status-${content.status}">${getStatusName(content.status)}</span></td>
+                                        <td>${new Date(content.created_at).toLocaleString()}</td>
+                                        <td>
+                                            <button class="btn btn-primary" onclick="showEditContentForm(${JSON.stringify(content).replace(/"/g, '&quot;')})">
+                                                <i class="fas fa-edit"></i> 编辑
+                                            </button>
+                                            <button class="btn btn-danger" onclick="deleteContent(${content.id})">
+                                                <i class="fas fa-trash"></i> 删除
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                }
+            } catch (error) {
+                console.error('加载内容列表失败:', error);
+                alert('加载内容列表失败');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function getCategoryName(category) {
+            const categories = {
+                news: '新闻',
+                notice: '公告',
+                article: '文章'
+            };
+            return categories[category] || category;
+        }
+
+        function getStatusName(status) {
+            const statuses = {
+                published: '已发布',
+                unpublished: '未发布'
+            };
+            return statuses[status] || status;
+        }
+
+        function showAddContentForm() {
+            document.getElementById('addContentForm').style.display = 'block';
+        }
+
+        function hideAddContentForm() {
+            document.getElementById('addContentForm').style.display = 'none';
+            document.getElementById('newTitle').value = '';
+            document.getElementById('newContent').value = '';
+        }
+
+        async function handleAddContent(event) {
+            event.preventDefault();
+            
+            const title = document.getElementById('newTitle').value;
+            const category = document.getElementById('newCategory').value;
+            const content = document.getElementById('newContent').value;
+            const status = document.getElementById('newStatus').value;
+
+            try {
+                const response = await fetch('/api/contents', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        title,
+                        category,
+                        content,
+                        status
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('内容添加成功');
+                    hideAddContentForm();
+                    loadContents();
+                } else {
+                    alert(data.message);
+                }
+            } catch (error) {
+                alert('添加内容失败');
+            }
+        }
+
+        // 添加一个数组来存储编辑时的待上传图片
+        let editPendingImages = [];
+
+        // 修改显示编辑内容表单函数
+        function showEditContentForm(content) {
+            document.getElementById('editContentId').value = content.id;
+            document.getElementById('editTitle').value = content.title;
+            document.getElementById('editCategory').value = content.category;
+            document.getElementById('editStatus').value = content.status;
+            document.getElementById('editContentForm').style.display = 'flex';
+            
+            // 设置编辑器内容
+            tinymce.get('editContentEditor').setContent(content.content);
+        }
+
+        // 修改隐藏编辑表单函数
+        function hideEditContentForm() {
+            document.getElementById('editContentForm').style.display = 'none';
+            document.body.style.overflow = 'auto'; // 恢复背景滚动
+            // 清空编辑器内容
+            tinymce.get('editContentEditor').setContent('');
+        }
+
+        // 点击模态框外部关闭
+        document.getElementById('editContentForm').addEventListener('click', function(e) {
+            if (e.target === this) {
+                hideEditContentForm();
+            }
+        });
+
+        // 修改编辑内容处理函数
+        async function handleEditContent(event) {
+            event.preventDefault();
+            showLoading();
+            
+            try {
+                const contentId = document.getElementById('editContentId').value;
+                const title = document.getElementById('editTitle').value;
+                const category = document.getElementById('editCategory').value;
+                const status = document.getElementById('editStatus').value;
+                const content = tinymce.get('editContentEditor').getContent();
+
+                const response = await fetch(`/api/contents/${contentId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title,
+                        category,
+                        content,
+                        status
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('内容更新成功');
+                    hideEditContentForm();
+                    loadContents();
+                } else {
+                    throw new Error(data.message || '更新失败');
+                }
+            } catch (error) {
+                alert(error.message || '更新内容失败');
+                console.error('更新失败:', error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 页面加载时初始化编辑器
+        document.addEventListener('DOMContentLoaded', function() {
+            initEditor('#editContentEditor');
+        });
+
+        // 初始化编辑器
+        function initEditor(selector) {
+            tinymce.init({
+                selector: selector,
+                height: 500,
+                plugins: [
+                    'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                    'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                    'insertdatetime', 'media', 'table', 'help', 'wordcount'
+                ],
+                toolbar: 'undo redo | blocks | ' +
+                    'bold italic forecolor | alignleft aligncenter ' +
+                    'alignright alignjustify | bullist numlist outdent indent | ' +
+                    'removeformat | image | help',
+                language: 'zh_CN', // 使用中文界
+                images_upload_url: '/api/upload', // 图片上传接口
+                images_upload_handler: async function (blobInfo, progress) {
+                    try {
+                        const formData = new FormData();
+                        formData.append('image', blobInfo.blob(), blobInfo.filename());
+
+                        const response = await fetch('/api/upload', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        const data = await response.json();
+                        if (data.success) {
+                            return data.url;
+                        }
+                        throw new Error('上传失败');
+                    } catch (error) {
+                        console.error('图片上传失败:', error);
+                        throw error;
+                    }
+                },
+                file_picker_types: 'image',
+                content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; font-size: 14px; }',
+                setup: function(editor) {
+                    editor.on('change', function() {
+                        // 更新隐藏的 textarea
+                        document.getElementById('editContent').value = editor.getContent();
+                    });
+                }
+            });
+        }
+
+        // 添加删除内容的函数
+        async function deleteContent(contentId) {
+            if (!confirm('确定要删除这个内容吗？')) {
+                return;
+            }
+
+            showLoading();
+            try {
+                const response = await fetch(`/api/contents/${contentId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('内容删除成功');
+                    loadContents(); // 重新加载内容列表
+                } else {
+                    throw new Error(data.message || '删除失败');
+                }
+            } catch (error) {
+                alert(error.message || '删除内容失败');
+                console.error('删除失败:', error);
+            } finally {
+                hideLoading();
+            }
+        }
+    </script>
+</body>
+</html> 
