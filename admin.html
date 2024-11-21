@@ -427,6 +427,33 @@
             justify-content: flex-end;
             margin-top: 20px;
         }
+
+        .recent-logins {
+            text-align: left;
+            padding: 10px;
+        }
+
+        .login-record {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .login-record:last-child {
+            border-bottom: none;
+        }
+
+        .login-username {
+            color: #2c3e50;
+            font-weight: 500;
+        }
+
+        .login-time {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -469,7 +496,8 @@
                 <!-- 仪表盘部 -->
                 <div id="dashboard">
                     <h3><i class="fas fa-chart-line"></i> 系统概览</h3>
-                    <div style="margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                    <!-- 统计卡片行 -->
+                    <div style="margin-top: 20px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
                         <!-- 用户统计卡片 -->
                         <div class="stat-card">
                             <div class="stat-header">
@@ -491,6 +519,21 @@
                             <div class="stat-content">
                                 <div class="stat-number" id="totalAdmins">-</div>
                                 <div class="stat-label">管理员数量</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 最近登录记录卡片（独立一行） -->
+                    <div style="margin-top: 20px;">
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <i class="fas fa-history"></i>
+                                <h4>最近登录记录</h4>
+                            </div>
+                            <div class="stat-content">
+                                <div id="recentLogins" class="recent-logins">
+                                    <!-- 登录记录将通过 JavaScript 动态加载 -->
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -654,30 +697,29 @@
 
         // 修改加载仪表数据函数
         async function loadDashboard() {
-            // 只在首次加载或手动刷新时显示加载动画
-            const isFirstLoad = !document.getElementById('totalUsers').textContent || 
-                               document.getElementById('totalUsers').textContent === '-';
-            if (isFirstLoad) {
-                showLoading();
-            }
-
+            showLoading();
             try {
                 const response = await fetch('/api/dashboard');
                 const data = await response.json();
                 
                 if (data.success) {
-                    // 只更新总用户数和管理员数量
                     document.getElementById('totalUsers').textContent = data.totalUsers || '-';
                     document.getElementById('totalAdmins').textContent = data.totalAdmins || '-';
-                } else {
-                    console.error('加载仪表盘数据失败:', data.message);
+                    
+                    // 显示最近登录记录
+                    const recentLoginsHtml = data.recentLogins.map(login => `
+                        <div class="login-record">
+                            <span class="login-username">${login.username}</span>
+                            <span class="login-time">${new Date(login.login_time).toLocaleString()}</span>
+                        </div>
+                    `).join('');
+                    
+                    document.getElementById('recentLogins').innerHTML = recentLoginsHtml;
                 }
             } catch (error) {
                 console.error('加载仪表盘数据失败:', error);
             } finally {
-                if (isFirstLoad) {
-                    hideLoading();
-                }
+                hideLoading();
             }
         }
 
@@ -1143,7 +1185,7 @@
                     alert('用户添加成功');
                     hideAddUserForm();
                     loadUsers();
-                    // 不需要手动刷新仪表盘，服务器会通过 Socket.IO 推送更新
+                    // 不需要手动刷新仪表盘，服务器会通 Socket.IO 推送更新
                 } else {
                     alert(data.message);
                 }

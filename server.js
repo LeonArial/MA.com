@@ -100,6 +100,7 @@ const loginAttempts = new Map();
 
 // 在文件顶部添加用户会话跟踪
 const activeUserSessions = new Map();
+const userSocketMap = new Map();
 
 // Socket.IO 连接处理
 io.on('connection', (socket) => {
@@ -107,12 +108,14 @@ io.on('connection', (socket) => {
     socket.on('store_user_socket', (userId) => {
         if (userId) {
             socket.userId = userId;
+            userSocketMap.set(userId, socket);
         }
     });
 
     socket.on('disconnect', () => {
         const userId = socket.userId;
         if (userId) {
+            userSocketMap.delete(userId);
             socket.userId = null;
         }
     });
@@ -167,6 +170,16 @@ app.post('/api/login', async (req, res) => {
             const user = results[0];
             
             if (password === user.password) {
+                // 记录登录信息
+                try {
+                    await db.promise().query(
+                        'INSERT INTO user_logins (user_id, login_time) VALUES (?, NOW())',
+                        [user.id]
+                    );
+                } catch (error) {
+                    console.error('记录登录信息失败');
+                }
+                
                 // 检查用户是否已在其他地方登录
                 const existingSessionId = activeUserSessions.get(user.id);
                 if (existingSessionId && existingSessionId !== req.sessionID) {
@@ -367,7 +380,7 @@ app.delete('/api/users/:id', checkAuth, (req, res) => {
         if (error) {
             return res.status(500).json({
                 success: false,
-                message: '删除用户失败'
+                message: '删除用��失败'
             });
         }
         res.json({
@@ -380,20 +393,24 @@ app.delete('/api/users/:id', checkAuth, (req, res) => {
 // 添加仪表盘数据接口
 app.get('/api/dashboard', checkAuth, async (req, res) => {
     try {
-        // 获取用户总数和管理员数量
+        // 获取基础统计数据
         const [totalUsers] = await db.promise().query('SELECT COUNT(*) as count FROM users');
         const [adminUsers] = await db.promise().query('SELECT COUNT(*) as count FROM users WHERE role = "admin"');
         
-        // 获取最近30天活跃用户数（这里用登录时间来模拟，实际应该根据具体需求修改）
-        const [activeUsers] = await db.promise().query(
-            'SELECT COUNT(DISTINCT user_id) as count FROM user_logins WHERE login_time > DATE_SUB(NOW(), INTERVAL 30 DAY)'
-        );
-
+        // 获取最近登录记录
+        const [recentLogins] = await db.promise().query(`
+            SELECT u.username, ul.login_time 
+            FROM user_logins ul 
+            JOIN users u ON ul.user_id = u.id 
+            ORDER BY ul.login_time DESC 
+            LIMIT 5
+        `);
+        
         res.json({
             success: true,
             totalUsers: totalUsers[0].count,
             totalAdmins: adminUsers[0].count,
-            activeUsers: activeUsers[0].count || 0
+            recentLogins: recentLogins
         });
     } catch (error) {
         console.error('获取仪表盘数据失败：', error);
