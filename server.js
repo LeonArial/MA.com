@@ -238,25 +238,62 @@ app.post('/api/login', async (req, res) => {
     });
 });
 
-// 登出处理
+// 修改登出处理，添加详细的错误日志
 app.post('/api/logout', (req, res) => {
-    if (req.session.userId) {
-        activeUserSessions.delete(req.session.userId);
-    }
+    console.log('开始处理登出请求');
+    const userId = req.session.userId;
+    console.log('当前用户ID:', userId);
     
-    req.session.destroy((err) => {
-        if (err) {
-            console.error('注销失败');
-            return res.status(500).json({
-                success: false,
-                message: '注销失败'
+    try {
+        // 清理活跃会话记录
+        if (userId) {
+            console.log('清理活跃会话记录');
+            activeUserSessions.delete(userId);
+            const socket = userSocketMap.get(userId);
+            if (socket) {
+                console.log('断开socket连接');
+                socket.disconnect();
+                userSocketMap.delete(userId);
+            }
+        }
+        
+        // 销毁会话
+        if (req.session) {
+            console.log('开始销毁会话');
+            req.session.destroy((err) => {
+                if (err) {
+                    console.error('会话销毁失败:', err);
+                    return res.status(500).json({
+                        success: false,
+                        message: '注销失败',
+                        error: err.message
+                    });
+                }
+                
+                console.log('会话销毁成功');
+                // 清除 cookie
+                res.clearCookie('sessionId');
+                
+                res.json({
+                    success: true,
+                    message: '注销成功'
+                });
+            });
+        } else {
+            console.log('没有找到会话');
+            res.json({
+                success: true,
+                message: '注销成功（无会话）'
             });
         }
-        res.json({
-            success: true,
-            message: '注销成功'
+    } catch (error) {
+        console.error('登出过程发生错误:', error);
+        res.status(500).json({
+            success: false,
+            message: '注销失败',
+            error: error.message
         });
-    });
+    }
 });
 
 // 获取用户列表
@@ -380,7 +417,7 @@ app.delete('/api/users/:id', checkAuth, (req, res) => {
         if (error) {
             return res.status(500).json({
                 success: false,
-                message: '删除用��失败'
+                message: '删除用失败'
             });
         }
         res.json({
@@ -397,20 +434,33 @@ app.get('/api/dashboard', checkAuth, async (req, res) => {
         const [totalUsers] = await db.promise().query('SELECT COUNT(*) as count FROM users');
         const [adminUsers] = await db.promise().query('SELECT COUNT(*) as count FROM users WHERE role = "admin"');
         
-        // 获取最近登录记录
+        // 获取最近登录记录总数
+        const [totalLogins] = await db.promise().query('SELECT COUNT(*) as count FROM user_logins');
+        
+        // 获取分页参数
+        const page = parseInt(req.query.page) || 1;
+        const pageSize = parseInt(req.query.pageSize) || 5;
+        const offset = (page - 1) * pageSize;
+        
+        // 获取分页后的登录记录
         const [recentLogins] = await db.promise().query(`
-            SELECT u.username, ul.login_time 
+            SELECT ul.id, u.username, ul.login_time 
             FROM user_logins ul 
             JOIN users u ON ul.user_id = u.id 
             ORDER BY ul.login_time DESC 
-            LIMIT 5
-        `);
+            LIMIT ? OFFSET ?
+        `, [pageSize, offset]);
         
         res.json({
             success: true,
             totalUsers: totalUsers[0].count,
             totalAdmins: adminUsers[0].count,
-            recentLogins: recentLogins
+            recentLogins: recentLogins,
+            pagination: {
+                total: totalLogins[0].count,
+                current: page,
+                pageSize: pageSize
+            }
         });
     } catch (error) {
         console.error('获取仪表盘数据失败：', error);

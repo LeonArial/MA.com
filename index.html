@@ -1053,28 +1053,51 @@
 
         // 修改登出处理函数
         async function handleLogout(event) {
-            event.preventDefault();
+            if (event) {
+                event.preventDefault();
+            }
+            
             try {
+                showLoading();
+                console.log('开始发送登出请求');
+                
+                // 先断开 socket 连接
+                if (socket && socket.connected) {
+                    console.log('断开socket连接');
+                    socket.disconnect();
+                }
+
+                // 清除本地存储
+                console.log('清除本地存储');
+                sessionStorage.clear();
+                localStorage.clear();
+                
+                // 清除所有cookie
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                });
+
+                // 发送登出请求
                 const response = await fetch('/api/logout', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
-                    }
+                    },
+                    credentials: 'same-origin'
                 });
 
-                const data = await response.json();
-                if (data.success) {
-                    // 断开 Socket.IO 连接
-                    if (socket.connected) {
-                        socket.disconnect();
-                    }
-                    window.location.reload();
-                } else {
-                    alert('退出失败，请重试');
-                }
+                console.log('收到登出响应:', response.status);
+                
+                // 不等待响应数据，直接跳转
+                console.log('重定向到登录页面');
+                window.location.replace('/login');
+                
             } catch (error) {
                 console.error('退出失败:', error);
-                alert('退出失败，请重试');
+                // 即使出错也跳转到登录页面
+                window.location.replace('/login');
+            } finally {
+                hideLoading();
             }
         }
 

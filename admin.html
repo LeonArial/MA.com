@@ -454,6 +454,66 @@
             color: #7f8c8d;
             font-size: 0.9em;
         }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+            padding: 10px;
+        }
+
+        .pagination button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .pagination button:hover {
+            background: #f5f6fa;
+        }
+
+        .pagination button.active {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+
+        .pagination button:disabled {
+            background: #f5f6fa;
+            color: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .recent-logins {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .login-record {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .login-record:last-child {
+            border-bottom: none;
+        }
+
+        .login-username {
+            color: #2c3e50;
+            font-weight: 500;
+        }
+
+        .login-time {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -528,11 +588,14 @@
                         <div class="stat-card">
                             <div class="stat-header">
                                 <i class="fas fa-history"></i>
-                                <h4>最近登录记录</h4>
+                                <h4>登录记录</h4>
                             </div>
                             <div class="stat-content">
                                 <div id="recentLogins" class="recent-logins">
-                                    <!-- 登录记录将通过 JavaScript 动态加载 -->
+                                    <!-- 登录记���通过 JavaScript 动态加载 -->
+                                </div>
+                                <div class="pagination" id="loginsPagination">
+                                    <!-- 分页控件将通过 JavaScript 动态加载 -->
                                 </div>
                             </div>
                         </div>
@@ -550,32 +613,45 @@
 
                     <div id="userList"></div>
 
-                    <!-- 添加用户表单 -->
-                    <div id="addUserForm" class="form-container" style="display: none;">
-                        <h4><i class="fas fa-user-plus"></i> 添加新用户</h4>
-                        <form onsubmit="handleAddUser(event)">
-                            <div class="form-group">
-                                <label>用户名：</label>
-                                <input type="text" id="newUsername" required>
+                    <!-- 添加用户模态框 -->
+                    <div id="addUserForm" class="modal">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h4><i class="fas fa-user-plus"></i> 添加新用户</h4>
+                                <span class="close-btn" onclick="hideAddUserForm()">
+                                    <i class="fas fa-times"></i>
+                                </span>
                             </div>
-                            <div class="form-group">
-                                <label>密码：</label>
-                                <input type="password" id="newPassword" required>
-                            </div>
-                            <div class="form-group">
-                                <label>角色：</label>
-                                <select id="newRole">
-                                    <option value="user">普通用户</option>
-                                    <option value="admin">管理员</option>
-                                </select>
-                            </div>
-                            <button type="submit" class="btn btn-success">
-                                <i class="fas fa-check"></i> 确认添加
-                            </button>
-                            <button type="button" class="btn btn-danger" onclick="hideAddUserForm()">
-                                <i class="fas fa-times"></i> 取消
-                            </button>
-                        </form>
+                            <form onsubmit="handleAddUser(event)">
+                                <div class="form-group">
+                                    <label>用户名：</label>
+                                    <input type="text" id="newUsername" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>密码：</label>
+                                    <input type="password" id="newPassword" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>确认密码：</label>
+                                    <input type="password" id="newPasswordConfirm" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>角色：</label>
+                                    <select id="newRole">
+                                        <option value="user">普通用户</option>
+                                        <option value="admin">管理员</option>
+                                    </select>
+                                </div>
+                                <div class="form-buttons">
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="fas fa-check"></i> 确认添加
+                                    </button>
+                                    <button type="button" class="btn btn-danger" onclick="hideAddUserForm()">
+                                        <i class="fas fa-times"></i> 取消
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
 
                     <!-- 修改编辑用户表单部分 -->
@@ -695,18 +771,20 @@
             }
         }
 
-        // 修改加载仪表数据函数
-        async function loadDashboard() {
+        let currentPage = 1;
+        const pageSize = 10;
+
+        async function loadDashboard(page = 1) {
             showLoading();
             try {
-                const response = await fetch('/api/dashboard');
+                const response = await fetch(`/api/dashboard?page=${page}&pageSize=${pageSize}`);
                 const data = await response.json();
                 
                 if (data.success) {
                     document.getElementById('totalUsers').textContent = data.totalUsers || '-';
                     document.getElementById('totalAdmins').textContent = data.totalAdmins || '-';
                     
-                    // 显示最近登录记录
+                    // 显示登录记录
                     const recentLoginsHtml = data.recentLogins.map(login => `
                         <div class="login-record">
                             <span class="login-username">${login.username}</span>
@@ -715,6 +793,11 @@
                     `).join('');
                     
                     document.getElementById('recentLogins').innerHTML = recentLoginsHtml;
+                    
+                    // 生成分页控件
+                    const totalPages = Math.ceil(data.pagination.total / data.pagination.pageSize);
+                    const paginationHtml = generatePagination(data.pagination.current, totalPages);
+                    document.getElementById('loginsPagination').innerHTML = paginationHtml;
                 }
             } catch (error) {
                 console.error('加载仪表盘数据失败:', error);
@@ -723,65 +806,40 @@
             }
         }
 
-        // 修改加载用户列表函数
-        async function loadUsers() {
-            // 只在首次加载或手动刷新时显示加载动画
-            const userList = document.getElementById('userList');
-            const isFirstLoad = !userList.innerHTML;
-            if (isFirstLoad) {
-                showLoading();
-            }
-
-            try {
-                const response = await fetch('/api/users');
-                const data = await response.json();
-                
-                if (data.success) {
-                    userList.innerHTML = `
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>用户名</th>
-                                    <th>角色</th>
-                                    <th>创建时间</th>
-                                    <th>操作</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${data.users.map(user => `
-                                    <tr>
-                                        <td>${user.id}</td>
-                                        <td>${user.username}</td>
-                                        <td>
-                                            <span class="badge ${user.role === 'admin' ? 'badge-admin' : 'badge-user'}">
-                                                ${user.role === 'admin' ? '管理员' : '普通用户'}
-                                            </span>
-                                        </td>
-                                        <td>${new Date(user.created_at).toLocaleString()}</td>
-                                        <td>
-                                            <button class="btn btn-primary" onclick="showEditUserForm(${user.id}, '${user.username}', '${user.role}')">
-                                                <i class="fas fa-edit"></i> 编辑
-                                            </button>
-                                            <button class="btn btn-danger" onclick="deleteUser(${user.id})">
-                                                <i class="fas fa-trash"></i> 删除
-                                            </button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    `;
-                }
-            } catch (error) {
-                console.error('加载用户列表失败:', error);
-                alert('加载用户列表失败');
-            } finally {
-                if (isFirstLoad) {
-                    hideLoading();
+        function generatePagination(current, total) {
+            let html = '';
+            
+            // 上一页按钮
+            html += `<button onclick="changePage(${current - 1})" ${current === 1 ? 'disabled' : ''}>
+                <i class="fas fa-chevron-left"></i>
+            </button>`;
+            
+            // 页码按钮
+            for (let i = 1; i <= total; i++) {
+                if (i === 1 || i === total || (i >= current - 2 && i <= current + 2)) {
+                    html += `<button onclick="changePage(${i})" class="${i === current ? 'active' : ''}">${i}</button>`;
+                } else if (i === current - 3 || i === current + 3) {
+                    html += `<button disabled>...</button>`;
                 }
             }
+            
+            // 下一页按钮
+            html += `<button onclick="changePage(${current + 1})" ${current === total ? 'disabled' : ''}>
+                <i class="fas fa-chevron-right"></i>
+            </button>`;
+            
+            return html;
         }
+
+        function changePage(page) {
+            currentPage = page;
+            loadDashboard(page);
+        }
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDashboard(currentPage);
+        });
 
         // 建立 Socket.IO 连接
         const socket = io();
@@ -811,7 +869,7 @@
                 const data = await response.json();
                 if (!data.success) {
                     if (data.message === '您的账号已在其他地方登录') {
-                        alert('您的账号已在其他地方登录，即将返回登录页面');
+                        alert('您的账号已在其他地方登录，即返回登录页面');
                     }
                     window.location.replace('/login');
                     return;
@@ -851,25 +909,45 @@
         // 修改登出处理函数
         async function handleLogout() {
             try {
+                showLoading();
+                console.log('开始发送登出请求');
+                
                 const response = await fetch('/api/logout', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
-                    }
+                    },
+                    credentials: 'same-origin'
                 });
 
+                console.log('收到登出响应:', response.status);
                 const data = await response.json();
-                if (data.success) {
-                    // 断开 Socket.IO 连接
-                    if (socket.connected) {
-                        socket.disconnect();
-                    }
-                    window.location.href = '/';
-                } else {
-                    alert('登出失败，请重试');
+                console.log('登出响应数据:', data);
+                
+                // 无论成功与否，都执行清理操作
+                if (socket && socket.connected) {
+                    console.log('断开socket连接');
+                    socket.disconnect();
                 }
+
+                // 清除本地存储
+                console.log('清除本地存储');
+                sessionStorage.clear();
+                localStorage.clear();
+                
+                // 清除所有cookie
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                });
+                
+                console.log('重定向到登录页面');
+                window.location.href = '/login';
+                
             } catch (error) {
-                alert('登出失败，请重试');
+                console.error('退出失败:', error);
+                alert('退出失败，请重试\n错误信息: ' + error.message);
+            } finally {
+                hideLoading();
             }
         }
 
@@ -882,30 +960,49 @@
             loadUsers();
         }
 
-        // 显示添加用户表单
+        // 修改显示添加用户表单函数
         function showAddUserForm() {
-            document.getElementById('addUserForm').style.display = 'block';
-        }
-
-        // 隐藏添加用户表单
-        function hideAddUserForm() {
-            document.getElementById('addUserForm').style.display = 'none';
+            document.getElementById('addUserForm').style.display = 'flex';
+            document.body.style.overflow = 'hidden'; // 防止背景滚动
+            
+            // 清空表单
             document.getElementById('newUsername').value = '';
             document.getElementById('newPassword').value = '';
+            document.getElementById('newPasswordConfirm').value = '';
+            document.getElementById('newRole').value = 'user';
         }
 
-        // 处理添加用户
+        // 修改隐藏添加用户表单函数
+        function hideAddUserForm() {
+            document.getElementById('addUserForm').style.display = 'none';
+            document.body.style.overflow = 'auto'; // 恢复背景滚动
+        }
+
+        // 修改添加用户处理函数
         async function handleAddUser(event) {
             event.preventDefault();
             
             const username = document.getElementById('newUsername').value;
             const rawPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('newPasswordConfirm').value;
             const role = document.getElementById('newRole').value;
+
+            // 验证密码
+            if (rawPassword !== confirmPassword) {
+                alert('两次输入的密码不一致！');
+                return;
+            }
+
+            if (rawPassword.length < 6) {
+                alert('密码长度不能少于6位！');
+                return;
+            }
 
             // 对密码进行哈希处理
             const hashedPassword = CryptoJS.SHA256(rawPassword).toString();
 
             try {
+                showLoading();
                 const response = await fetch('/api/users', {
                     method: 'POST',
                     headers: {
@@ -926,12 +1023,22 @@
                     hideAddUserForm();
                     loadUsers();
                 } else {
-                    alert(data.message);
+                    alert(data.message || '添加用户失败');
                 }
             } catch (error) {
+                console.error('添加用户失败:', error);
                 alert('添加用户失败');
+            } finally {
+                hideLoading();
             }
         }
+
+        // 添加点击模态框外部关闭功能
+        document.getElementById('addUserForm').addEventListener('click', function(e) {
+            if (e.target === this) {
+                hideAddUserForm();
+            }
+        });
 
         // 显示编辑用户表单
         function showEditUserForm(userId, username, role) {
@@ -1556,6 +1663,73 @@
             if (socket.connected) {
                 socket.disconnect();
             }
+        });
+
+        // 修改加载用户列表函数
+        async function loadUsers() {
+            const userList = document.getElementById('userList');
+            const isFirstLoad = !userList.innerHTML;
+            if (isFirstLoad) {
+                showLoading();
+            }
+
+            try {
+                const response = await fetch('/api/users');
+                const data = await response.json();
+                
+                if (data.success) {
+                    userList.innerHTML = `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>用户名</th>
+                                    <th>角色</th>
+                                    <th>创建时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.users.map(user => `
+                                    <tr>
+                                        <td>${user.id}</td>
+                                        <td>${user.username}</td>
+                                        <td>
+                                            <span class="badge ${user.role === 'admin' ? 'badge-admin' : 'badge-user'}">
+                                                ${user.role === 'admin' ? '管理员' : '普通用户'}
+                                            </span>
+                                        </td>
+                                        <td>${new Date(user.created_at).toLocaleString()}</td>
+                                        <td>
+                                            <button class="btn btn-primary" onclick="showEditUserForm(${user.id}, '${user.username}', '${user.role}')">
+                                                <i class="fas fa-edit"></i> 编辑
+                                            </button>
+                                            <button class="btn btn-danger" onclick="deleteUser(${user.id})">
+                                                <i class="fas fa-trash"></i> 删除
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                }
+            } catch (error) {
+                console.error('加载用户列表失败:', error);
+                alert('加载用户列表失败');
+            } finally {
+                if (isFirstLoad) {
+                    hideLoading();
+                }
+            }
+        }
+
+        // 添加菜单点击事件处理
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const menuText = this.textContent.trim();
+                switchPage(menuText);
+            });
         });
     </script>
 </body>
