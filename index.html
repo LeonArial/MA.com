@@ -814,7 +814,38 @@
     </div>
 
     <script>
-        // 检查登录状态
+        // Socket.IO 相关代码重构
+        let socket = null;
+
+        // 初始化Socket连接
+        function initializeSocket(userId) {
+            if (!socket) {
+                socket = io();
+
+                // Socket连接事件
+                socket.on('connect', () => {
+                    console.log('Socket connected:', socket.id);
+                    if (userId) {
+                        socket.emit('store_user_socket', userId);
+                    }
+                });
+
+                // 强制登出事件
+                socket.on('force_logout', (data) => {
+                    console.log('Received force logout event:', data);
+                    alert(data.message);
+                    handleLogout();
+                });
+
+                // 断开连接事件
+                socket.on('disconnect', () => {
+                    console.log('Socket disconnected');
+                });
+            }
+            return socket;
+        }
+
+        // 修改检查登录状态函数
         async function checkLoginStatus() {
             try {
                 const response = await fetch('/api/login/status');
@@ -831,20 +862,78 @@
                     username.textContent = data.user.username;
                     publishButton.style.display = 'block';
                     
-                    if (!socket.userId) {
-                        socket.userId = data.user.id;
-                        socket.emit('store_user_socket', data.user.id);
+                    // 初始化socket连接
+                    const socket = initializeSocket(data.user.id);
+                    if (socket && !socket.connected) {
+                        socket.connect();
                     }
                 } else {
                     loginBtn.style.display = 'flex';
                     userInfo.style.display = 'none';
                     username.textContent = '';
                     publishButton.style.display = 'none';
+                    
+                    // 如果未登录且socket存在，断开连接
+                    if (socket && socket.connected) {
+                        socket.disconnect();
+                    }
                 }
             } catch (error) {
                 console.error('检查登录状态失败:', error);
             }
         }
+
+        // 修改页面可见性变化处理
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                checkLoginStatus(); // 重新检查登录状态，这会处理socket连接
+            }
+        });
+
+        // 修改登出处理函数
+        async function handleLogout(event) {
+            if (event) {
+                event.preventDefault();
+            }
+            
+            try {
+                const response = await fetch('/api/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 清除本地存储
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    
+                    // 断开socket连接
+                    if (socket && socket.connected) {
+                        socket.disconnect();
+                        socket = null; // 清除socket实例
+                    }
+                    
+                    // 重定向到登录页
+                    window.location.href = '/login';
+                } else {
+                    throw new Error(data.message || '退出失败');
+                }
+            } catch (error) {
+                console.error('退出失败:', error);
+                alert('退出失败: ' + error.message);
+            }
+        }
+
+        // 页面关闭或刷新前的处理
+        window.addEventListener('beforeunload', () => {
+            if (socket && socket.connected) {
+                socket.disconnect();
+            }
+        });
 
         // 加载内容列表
         async function loadContents(category = 'all') {
@@ -1051,56 +1140,6 @@
             loading.style.display = 'none';
         }
 
-        // 修改登出处理函数
-        async function handleLogout(event) {
-            if (event) {
-                event.preventDefault();
-            }
-            
-            try {
-                showLoading();
-                console.log('开始发送登出请求');
-                
-                // 先断开 socket 连接
-                if (socket && socket.connected) {
-                    console.log('断开socket连接');
-                    socket.disconnect();
-                }
-
-                // 清除本地存储
-                console.log('清除本地存储');
-                sessionStorage.clear();
-                localStorage.clear();
-                
-                // 清除所有cookie
-                document.cookie.split(";").forEach(function(c) { 
-                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-                });
-
-                // 发送登出请求
-                const response = await fetch('/api/logout', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'same-origin'
-                });
-
-                console.log('收到登出响应:', response.status);
-                
-                // 不等待响应数据，直接跳转
-                console.log('重定向到登录页面');
-                window.location.replace('/login');
-                
-            } catch (error) {
-                console.error('退出失败:', error);
-                // 即使出错也跳转到登录页面
-                window.location.replace('/login');
-            } finally {
-                hideLoading();
-            }
-        }
-
         // 修改登录按钮的链接处理
         document.addEventListener('DOMContentLoaded', function() {
             const loginBtn = document.getElementById('loginBtn');
@@ -1111,40 +1150,6 @@
                     sessionStorage.setItem('returnUrl', window.location.href);
                     window.location.href = '/login';
                 });
-            }
-        });
-
-        // Socket.IO 连接
-        const socket = io();
-
-        // Socket.IO 事件监听
-        socket.on('connect', () => {
-            console.log('Socket connected:', socket.id);
-            if (socket.userId) {
-                socket.emit('store_user_socket', socket.userId);
-            }
-        });
-
-        socket.on('force_logout', (data) => {
-            console.log('Received force logout event:', data);
-            alert(data.message);
-            window.location.replace('/login');
-        });
-
-        // 页面加载和页面可见性变化时检查登录状态
-        document.addEventListener('DOMContentLoaded', checkLoginStatus);
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden && socket.userId) {
-                socket.connect();
-                socket.emit('user_connected', socket.userId);
-                socket.emit('store_user_socket', socket.userId);
-            }
-        });
-
-        // 页面关闭或刷新前的处理
-        window.addEventListener('beforeunload', () => {
-            if (socket.connected) {
-                socket.disconnect();
             }
         });
     </script>

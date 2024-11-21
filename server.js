@@ -238,20 +238,16 @@ app.post('/api/login', async (req, res) => {
     });
 });
 
-// 修改登出处理，添加详细的错误日志
+// 修改登出处理
 app.post('/api/logout', (req, res) => {
-    console.log('开始处理登出请求');
     const userId = req.session.userId;
-    console.log('当前用户ID:', userId);
     
     try {
         // 清理活跃会话记录
         if (userId) {
-            console.log('清理活跃会话记录');
             activeUserSessions.delete(userId);
             const socket = userSocketMap.get(userId);
             if (socket) {
-                console.log('断开socket连接');
                 socket.disconnect();
                 userSocketMap.delete(userId);
             }
@@ -259,18 +255,14 @@ app.post('/api/logout', (req, res) => {
         
         // 销毁会话
         if (req.session) {
-            console.log('开始销毁会话');
             req.session.destroy((err) => {
                 if (err) {
-                    console.error('会话销毁失败:', err);
                     return res.status(500).json({
                         success: false,
-                        message: '注销失败',
-                        error: err.message
+                        message: '注销失败'
                     });
                 }
                 
-                console.log('会话销毁成功');
                 // 清除 cookie
                 res.clearCookie('sessionId');
                 
@@ -280,18 +272,15 @@ app.post('/api/logout', (req, res) => {
                 });
             });
         } else {
-            console.log('没有找到会话');
             res.json({
                 success: true,
-                message: '注销成功（无会话）'
+                message: '注销成功'
             });
         }
     } catch (error) {
-        console.error('登出过程发生错误:', error);
         res.status(500).json({
             success: false,
-            message: '注销失败',
-            error: error.message
+            message: '注销失败'
         });
     }
 });
