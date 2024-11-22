@@ -103,29 +103,6 @@
             transform: translateY(0);
         }
 
-        /* 加载动画 */
-        .loading {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #764ba2;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -176,14 +153,85 @@
         .back-btn i {
             font-size: 16px;
         }
+
+        /* Toast 提示框样式 */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+        }
+
+        .toast {
+            background: white;
+            border-radius: 8px;
+            padding: 15px 25px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s;
+            max-width: 350px;
+        }
+
+        .toast.success {
+            border-left: 4px solid #2ecc71;
+        }
+
+        .toast.error {
+            border-left: 4px solid #e74c3c;
+        }
+
+        .toast.info {
+            border-left: 4px solid #3498db;
+        }
+
+        .toast-icon {
+            font-size: 20px;
+        }
+
+        .toast.success .toast-icon {
+            color: #2ecc71;
+        }
+
+        .toast.error .toast-icon {
+            color: #e74c3c;
+        }
+
+        .toast.info .toast-icon {
+            color: #3498db;
+        }
+
+        .toast-message {
+            color: #2c3e50;
+            font-size: 14px;
+            flex: 1;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+            }
+        }
     </style>
 </head>
 <body>
-    <!-- 加载动画 -->
-    <div class="loading">
-        <div class="loading-spinner"></div>
-    </div>
-
     <div class="login-container">
         <div class="login-header">
             <i class="fas fa-user-circle icon"></i>
@@ -228,24 +276,9 @@
         </form>
     </div>
 
+    <div class="toast-container" id="toastContainer"></div>
+
     <script>
-        function showLoading() {
-            document.querySelector('.loading').style.display = 'flex';
-        }
-
-        function hideLoading() {
-            document.querySelector('.loading').style.display = 'none';
-        }
-
-        function showError(message) {
-            const errorDiv = document.getElementById('errorMessage');
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
-            setTimeout(() => {
-                errorDiv.style.display = 'none';
-            }, 3000);
-        }
-
         // 刷新验证码
         async function refreshCaptcha() {
             const img = document.getElementById('captchaImage');
@@ -255,9 +288,42 @@
         // 页面加载时加载验证码
         document.addEventListener('DOMContentLoaded', refreshCaptcha);
 
+        // 删除原有的 showError 函数，改用 showToast 函数
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            let icon = '';
+            switch(type) {
+                case 'success':
+                    icon = 'check-circle';
+                    break;
+                case 'error':
+                    icon = 'times-circle';
+                    break;
+                default:
+                    icon = 'info-circle';
+            }
+            
+            toast.innerHTML = `
+                <i class="fas fa-${icon} toast-icon"></i>
+                <div class="toast-message">${message}</div>
+            `;
+            
+            container.appendChild(toast);
+            
+            // 3秒后移除提示框
+            setTimeout(() => {
+                toast.addEventListener('animationend', () => {
+                    container.removeChild(toast);
+                });
+            }, 3000);
+        }
+
+        // 修改登录表单提交处理
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            showLoading();
             
             const username = document.getElementById('username').value;
             const rawPassword = document.getElementById('password').value;
@@ -282,20 +348,34 @@
                 const data = await response.json();
                 
                 if (data.success) {
+                    showToast('登录成功，正在跳转...', 'success');
                     // 获取返回URL，如果没有则默认返回主页
                     const returnUrl = sessionStorage.getItem('returnUrl') || '/';
                     sessionStorage.removeItem('returnUrl'); // 清除存储的URL
-                    window.location.href = returnUrl;
+                    setTimeout(() => {
+                        window.location.href = returnUrl;
+                    }, 1000);
                 } else {
-                    showError(data.message);
+                    // 使用统一的错误提示，不区分具体是用户名还是密码错误
+                    if (data.message.includes('用户') || data.message.includes('密码')) {
+                        showToast('用户名或密码错误', 'error');
+                    } else if (data.message.includes('验证码')) {
+                        showToast('验证码错误', 'error');
+                    } else {
+                        showToast(data.message, 'error');
+                    }
                     refreshCaptcha();
                     document.getElementById('captcha').value = '';
+                    
+                    // 如果是用户名或密码错误，清空密码输入框
+                    if (data.message.includes('用户') || data.message.includes('密码')) {
+                        document.getElementById('password').value = '';
+                    }
                 }
             } catch (error) {
-                showError('登录失败，请重试');
+                showToast('登录失败，请重试', 'error');
                 refreshCaptcha();
-            } finally {
-                hideLoading();
+                document.getElementById('password').value = '';
             }
         });
     </script>

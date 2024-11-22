@@ -220,29 +220,6 @@
             background-color: #f8f9fa;
         }
 
-        /* 加载动画样式 */
-        .loading {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -514,14 +491,85 @@
             color: #7f8c8d;
             font-size: 0.9em;
         }
+
+        /* Toast 提示框样式 */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+        }
+
+        .toast {
+            background: white;
+            border-radius: 8px;
+            padding: 15px 25px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s;
+            max-width: 350px;
+        }
+
+        .toast.success {
+            border-left: 4px solid #2ecc71;
+        }
+
+        .toast.error {
+            border-left: 4px solid #e74c3c;
+        }
+
+        .toast.info {
+            border-left: 4px solid #3498db;
+        }
+
+        .toast-icon {
+            font-size: 20px;
+        }
+
+        .toast.success .toast-icon {
+            color: #2ecc71;
+        }
+
+        .toast.error .toast-icon {
+            color: #e74c3c;
+        }
+
+        .toast.info .toast-icon {
+            color: #3498db;
+        }
+
+        .toast-message {
+            color: #2c3e50;
+            font-size: 14px;
+            flex: 1;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+            }
+        }
     </style>
 </head>
 <body>
-    <!-- 添加加载动画 -->
-    <div class="loading">
-        <div class="loading-spinner"></div>
-    </div>
-
     <div class="container">
         <div class="sidebar">
             <a href="/" class="sidebar-home">
@@ -592,7 +640,7 @@
                             </div>
                             <div class="stat-content">
                                 <div id="recentLogins" class="recent-logins">
-                                    <!-- 登录记���通过 JavaScript 动态加载 -->
+                                    <!-- 登录记通过 JavaScript 动态加载 -->
                                 </div>
                                 <div class="pagination" id="loginsPagination">
                                     <!-- 分页控件将通过 JavaScript 动态加载 -->
@@ -755,27 +803,14 @@
         </div>
     </div>
 
+    <!-- 在 body 标签末尾添加 toast 容器 -->
+    <div class="toast-container" id="toastContainer"></div>
+
     <script>
-        // 修改加载动画相关函数
-        function showLoading() {
-            const loading = document.querySelector('.loading');
-            if (!loading.style.display || loading.style.display === 'none') {
-                loading.style.display = 'flex';
-            }
-        }
-
-        function hideLoading() {
-            const loading = document.querySelector('.loading');
-            if (loading.style.display === 'flex') {
-                loading.style.display = 'none';
-            }
-        }
-
         let currentPage = 1;
         const pageSize = 10;
 
         async function loadDashboard(page = 1) {
-            showLoading();
             try {
                 const response = await fetch(`/api/dashboard?page=${page}&pageSize=${pageSize}`);
                 const data = await response.json();
@@ -801,8 +836,6 @@
                 }
             } catch (error) {
                 console.error('加载仪表盘数据失败:', error);
-            } finally {
-                hideLoading();
             }
         }
 
@@ -855,7 +888,7 @@
         // 在 Socket.IO 连接相关代码部分添加
         socket.on('force_logout', (data) => {
             console.log('Received force logout event:', data);
-            alert(data.message);
+            showToast(data.message, 'info');
             // 确保在跳转前执行清理操作
             socket.disconnect();
             // 使用同步的方式跳转，确保消息能够显示
@@ -869,7 +902,7 @@
                 const data = await response.json();
                 if (!data.success) {
                     if (data.message === '您的账号已在其他地方登录') {
-                        alert('您的账号已在其他地方登录，即返回登录页面');
+                        showToast('您的账号已在其他地方登录，即返回登录页面', 'info');
                     }
                     window.location.replace('/login');
                     return;
@@ -909,7 +942,6 @@
         // 修改登出处理函数
         async function handleLogout() {
             try {
-                showLoading();
                 console.log('开始发送登出请求');
                 
                 const response = await fetch('/api/logout', {
@@ -939,15 +971,15 @@
                 document.cookie.split(";").forEach(function(c) { 
                     document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
                 });
-                
+                // 显示提示并延迟跳转
+                showToast('正在跳转到登录页面...', 'info');
+                await new Promise(resolve => setTimeout(resolve, 1000));
                 console.log('重定向到登录页面');
                 window.location.href = '/login';
                 
             } catch (error) {
                 console.error('退出失败:', error);
-                alert('退出失败，请重试\n错误信息: ' + error.message);
-            } finally {
-                hideLoading();
+                showToast('退出失败，请重试\n错误信息: ' + error.message, 'error');
             }
         }
 
@@ -989,12 +1021,12 @@
 
             // 验证密码
             if (rawPassword !== confirmPassword) {
-                alert('两次输入的密码不一致！');
+                showToast('两次输入的密码不一致！', 'error');
                 return;
             }
 
             if (rawPassword.length < 6) {
-                alert('密码长度不能少于6位！');
+                showToast('密码长度不能少于6位！', 'error');
                 return;
             }
 
@@ -1002,7 +1034,6 @@
             const hashedPassword = CryptoJS.SHA256(rawPassword).toString();
 
             try {
-                showLoading();
                 const response = await fetch('/api/users', {
                     method: 'POST',
                     headers: {
@@ -1019,17 +1050,15 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('用户添加成功');
+                    showToast('用户添加成功', 'success');
                     hideAddUserForm();
                     loadUsers();
                 } else {
-                    alert(data.message || '添加用户失败');
+                    showToast(data.message || '添加用户失败', 'error');
                 }
             } catch (error) {
                 console.error('添加用户失败:', error);
-                alert('添加用户失败');
-            } finally {
-                hideLoading();
+                showToast('添加用户失败', 'error');
             }
         }
 
@@ -1079,11 +1108,11 @@
             // 如果输入了密码，检查两次输入是否一致
             if (rawPassword) {
                 if (rawPassword !== confirmPassword) {
-                    alert('两次输入的密码不一致！');
+                    showToast('两次输入的密码不一致！', 'error');
                     return;
                 }
                 if (rawPassword.length < 6) {
-                    alert('密码长度不能少于6位！');
+                    showToast('密码长度不能少于6位！', 'error');
                     return;
                 }
             }
@@ -1110,14 +1139,14 @@
                 const responseData = await response.json();
                 
                 if (responseData.success) {
-                    alert('用户更新成功');
+                    showToast('用户更新成功', 'success');
                     hideEditUserForm();
                     loadUsers();
                 } else {
-                    alert(responseData.message);
+                    showToast(responseData.message, 'error');
                 }
             } catch (error) {
-                alert('更新用户失败');
+                showToast('更新用户失败', 'error');
             }
         }
 
@@ -1135,13 +1164,13 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('用户删除成功');
+                    showToast('用户删除成功', 'success');
                     loadUsers();
                 } else {
-                    alert(data.message);
+                    showToast(data.message, 'error');
                 }
             } catch (error) {
-                alert('删除用户失败');
+                showToast('删除用户失败', 'error');
             }
         }
 
@@ -1289,15 +1318,15 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('用户添加成功');
+                    showToast('用户添加成功', 'success');
                     hideAddUserForm();
                     loadUsers();
                     // 不需要手动刷新仪表盘，服务器会通 Socket.IO 推送更新
                 } else {
-                    alert(data.message);
+                    showToast(data.message, 'error');
                 }
             } catch (error) {
-                alert('添加用户失败');
+                showToast('添加用户失败', 'error');
             }
         }
 
@@ -1315,14 +1344,14 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('用户删除成功');
+                    showToast('用户删除成功', 'success');
                     loadUsers();
                     // 不需要手动刷新仪表盘，服务器会通过 Socket.IO 推送更新
                 } else {
-                    alert(data.message);
+                    showToast(data.message, 'error');
                 }
             } catch (error) {
-                alert('删除用户失败');
+                showToast('删除用户失败', 'error');
             }
         }
 
@@ -1339,11 +1368,11 @@
             // 如果输入了密码，检查两次输入是否一致
             if (rawPassword) {
                 if (rawPassword !== confirmPassword) {
-                    alert('两次输入的密码不一致！');
+                    showToast('两次输入的密码不一致！', 'error');
                     return;
                 }
                 if (rawPassword.length < 6) {
-                    alert('密码长度不能少于6位！');
+                    showToast('密码长度不能少于6位！', 'error');
                     return;
                 }
             }
@@ -1370,22 +1399,21 @@
                 const responseData = await response.json();
                 
                 if (responseData.success) {
-                    alert('用户更新成功');
+                    showToast('用户更新成功', 'success');
                     hideEditUserForm();
                     loadUsers();
                     // 不需要手动刷新仪表盘，服务器会通过 Socket.IO 推送更新
                 } else {
-                    alert(responseData.message);
+                    showToast(responseData.message, 'error');
                 }
             } catch (error) {
-                alert('更新用户失败');
+                showToast('更新用户失败', 'error');
             }
         }
 
         // 内容管理相关函数
         async function loadContents() {
             const contentList = document.getElementById('contentList');
-            showLoading();
 
             try {
                 const response = await fetch('/api/contents');
@@ -1428,9 +1456,7 @@
                 }
             } catch (error) {
                 console.error('加载内容列表失败:', error);
-                alert('加载内容列表失败');
-            } finally {
-                hideLoading();
+                showToast('加载内容列表失败', 'error');
             }
         }
 
@@ -1486,14 +1512,14 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('内容添加成功');
+                    showToast('内容添加成功', 'success');
                     hideAddContentForm();
                     loadContents();
                 } else {
-                    alert(data.message);
+                    showToast(data.message, 'error');
                 }
             } catch (error) {
-                alert('添加内容失败');
+                showToast('添加内容失败', 'error');
             }
         }
 
@@ -1530,7 +1556,6 @@
         // 修改编辑内容处理函数
         async function handleEditContent(event) {
             event.preventDefault();
-            showLoading();
             
             try {
                 const contentId = document.getElementById('editContentId').value;
@@ -1555,18 +1580,16 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('内容更新成功');
+                    showToast('内容更新成功', 'success');
                     hideEditContentForm();
                     loadContents();
                 } else {
                     throw new Error(data.message || '更新失败');
                 }
             } catch (error) {
-                alert(error.message || '更新内容失败');
+                showToast(error.message || '更新内容失败', 'error');
                 console.error('更新失败:', error);
-            } finally {
-                hideLoading();
-            }
+            } 
         }
 
         // 页面加载时初始化编辑器
@@ -1627,7 +1650,6 @@
                 return;
             }
 
-            showLoading();
             try {
                 const response = await fetch(`/api/contents/${contentId}`, {
                     method: 'DELETE'
@@ -1636,16 +1658,14 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('内容删除成功');
+                    showToast('内容删除成功', 'success');
                     loadContents(); // 重新加载内容列表
                 } else {
                     throw new Error(data.message || '删除失败');
                 }
             } catch (error) {
-                alert(error.message || '删除内容失败');
+                showToast(error.message || '删除内容失败', 'error');
                 console.error('删除失败:', error);
-            } finally {
-                hideLoading();
             }
         }
 
@@ -1670,7 +1690,6 @@
             const userList = document.getElementById('userList');
             const isFirstLoad = !userList.innerHTML;
             if (isFirstLoad) {
-                showLoading();
             }
 
             try {
@@ -1716,11 +1735,7 @@
                 }
             } catch (error) {
                 console.error('加载用户列表失败:', error);
-                alert('加载用户列表失败');
-            } finally {
-                if (isFirstLoad) {
-                    hideLoading();
-                }
+                showToast('加载用户列表失败', 'error');
             }
         }
 
@@ -1731,6 +1746,39 @@
                 switchPage(menuText);
             });
         });
+
+        // 显示提示框的函数
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            let icon = '';
+            switch(type) {
+                case 'success':
+                    icon = 'check-circle';
+                    break;
+                case 'error':
+                    icon = 'times-circle';
+                    break;
+                default:
+                    icon = 'info-circle';
+            }
+            
+            toast.innerHTML = `
+                <i class="fas fa-${icon} toast-icon"></i>
+                <div class="toast-message">${message}</div>
+            `;
+            
+            container.appendChild(toast);
+            
+            // 3秒后移除提示框
+            setTimeout(() => {
+                toast.addEventListener('animationend', () => {
+                    container.removeChild(toast);
+                });
+            }, 3000);
+        }
     </script>
 </body>
 </html> 

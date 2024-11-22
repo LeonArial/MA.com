@@ -715,6 +715,81 @@
         .image-tools button:hover {
             background: rgba(255, 255, 255, 0.2);
         }
+
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+        }
+
+        .toast {
+            background: white;
+            border-radius: 8px;
+            padding: 15px 25px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s;
+            max-width: 350px;
+        }
+
+        .toast.success {
+            border-left: 4px solid #2ecc71;
+        }
+
+        .toast.error {
+            border-left: 4px solid #e74c3c;
+        }
+
+        .toast.info {
+            border-left: 4px solid #3498db;
+        }
+
+        .toast-icon {
+            font-size: 20px;
+        }
+
+        .toast.success .toast-icon {
+            color: #2ecc71;
+        }
+
+        .toast.error .toast-icon {
+            color: #e74c3c;
+        }
+
+        .toast.info .toast-icon {
+            color: #3498db;
+        }
+
+        .toast-message {
+            color: #2c3e50;
+            font-size: 14px;
+            flex: 1;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+            }
+        }
     </style>
     <script src="https://cdn.tiny.cloud/1/ultqulo896fvxj3l2o617lktjikveakzhi2e5rus5uzei7cw/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
 </head>
@@ -813,6 +888,8 @@
         </div>
     </div>
 
+    <div class="toast-container" id="toastContainer"></div>
+
     <script>
         // Socket.IO 相关代码重构
         let socket = null;
@@ -833,7 +910,7 @@
                 // 强制登出事件
                 socket.on('force_logout', (data) => {
                     console.log('Received force logout event:', data);
-                    alert(data.message);
+                    showToast(data.message, 'info');
                     handleLogout();
                 });
 
@@ -917,14 +994,18 @@
                         socket = null; // 清除socket实例
                     }
                     
+                    showToast('登出成功', 'success');
                     // 重定向到登录页
-                    window.location.href = '/login';
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);  // 1000毫秒 = 1秒
+
                 } else {
-                    throw new Error(data.message || '退出失败');
+                    showToast(data.message || '退出失败', 'error');
                 }
             } catch (error) {
                 console.error('退出失败:', error);
-                alert('退出失败: ' + error.message);
+                showToast('退出失败: ' + error.message, 'error');
             }
         }
 
@@ -1084,7 +1165,6 @@
         // 修改发布内容处理函数
         async function handleAddContent(event) {
             event.preventDefault();
-            showLoading();
             
             try {
                 const title = document.getElementById('newTitle').value;
@@ -1107,17 +1187,15 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('内容发布成功');
+                    showToast('内容发布成功', 'success');
                     hideAddContentForm();
                     loadContents();
                 } else {
                     throw new Error(data.message || '发布失败');
                 }
             } catch (error) {
-                alert(error.message || '发布内容失败');
+                showToast(error.message || '发布内容失败', 'error');
                 console.error('发布失败:', error);
-            } finally {
-                hideLoading();
             }
         }
 
@@ -1127,18 +1205,6 @@
             checkLoginStatus();
             loadContents();
         });
-
-        // 添加显示加载动画函数
-        function showLoading() {
-            const loading = document.querySelector('.loading');
-            loading.style.display = 'flex';
-        }
-
-        // 添加隐藏加载动画函数
-        function hideLoading() {
-            const loading = document.querySelector('.loading');
-            loading.style.display = 'none';
-        }
 
         // 修改登录按钮的链接处理
         document.addEventListener('DOMContentLoaded', function() {
@@ -1152,6 +1218,39 @@
                 });
             }
         });
+
+        // 显示提示框的函数
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            let icon = '';
+            switch(type) {
+                case 'success':
+                    icon = 'check-circle';
+                    break;
+                case 'error':
+                    icon = 'times-circle';
+                    break;
+                default:
+                    icon = 'info-circle';
+            }
+            
+            toast.innerHTML = `
+                <i class="fas fa-${icon} toast-icon"></i>
+                <div class="toast-message">${message}</div>
+            `;
+            
+            container.appendChild(toast);
+            
+            // 3秒后移除提示框
+            setTimeout(() => {
+                toast.addEventListener('animationend', () => {
+                    container.removeChild(toast);
+                });
+            }, 3000);
+        }
     </script>
 </body>
 </html> 
